@@ -1,5 +1,8 @@
 package com.employeemanagement.employeemanagementsystem.model;
 
+import com.employeemanagement.employeemanagementsystem.exceptions.EmployeeNotFoundException;
+import com.employeemanagement.employeemanagementsystem.exceptions.InvalidDepartmentException;
+import com.employeemanagement.employeemanagementsystem.exceptions.InvalidSalaryException;
 import com.employeemanagement.employeemanagementsystem.model.comparator.EmployeePerformanceComparator;
 import com.employeemanagement.employeemanagementsystem.model.comparator.EmployeeSalaryComparator;
 
@@ -19,15 +22,48 @@ public class EmployeeDatabase<T> {
         this.employees = new HashMap<>();
     }
 
+    //Validations
+
+    // Validates Department Value
+    private void validateDepartment(EEmployeeDepartment department) throws InvalidDepartmentException {
+        if (department == null) {
+            throw new InvalidDepartmentException("Department cannot be null");
+        }
+
+        // Check if department is one of the valid enum values
+        try {
+            EEmployeeDepartment.valueOf(department.name());
+        } catch (IllegalArgumentException e) {
+            throw new InvalidDepartmentException("Invalid department value: " + department +
+                    ". Valid departments are: " + Arrays.toString(EEmployeeDepartment.values()));
+        }
+    }
+    //Validates employee ID exists in database
+    private void validateEmployeeExists(T employeeId) throws EmployeeNotFoundException {
+        if (employeeId == null) {
+            throw new EmployeeNotFoundException("Employee ID cannot be null");
+        }
+
+        if (!employees.containsKey(employeeId)) {
+            throw new EmployeeNotFoundException("Employee with ID " + employeeId + " not found in database");
+        }
+    }
+
     //CRUD Operations
 
     //Create
-    public boolean addEmployee(Employee<T> employee){
+    public void addEmployee(Employee<T> employee) throws InvalidSalaryException {
+        if (employee == null) {
+            throw new IllegalArgumentException("Employee cannot be null");
+        }
+
+        if(employee.getEmployeeSalary() < 0 ){
+            throw new InvalidSalaryException("Employee salary cannot be negative");
+        }
         if(employees.containsKey(employee.getEmployeeId())){
-            return false; // Employee with this ID already exist
+            throw new IllegalArgumentException("Employee with ID " + employee.getEmployeeId() + " already exists");
         }
         employees.put(employee.getEmployeeId(), employee);
-        return true;
     }
 
     //Retrieve All
@@ -36,29 +72,48 @@ public class EmployeeDatabase<T> {
     }
 
     //Retrieve employee by employeeId
-    public Employee<T> getEmployee(T employeeId){
-        return employees.get(employeeId);
+    public Employee<T> getEmployee(T employeeId) throws EmployeeNotFoundException {
+        Employee<T> employee = employees.get(employeeId);
+        if (employee == null) {
+            throw new EmployeeNotFoundException("Employee with ID " + employeeId + " not found");
+        }
+        return employee;
     }
 
     //Update
-    public boolean updateEmployeeDetails(T employeeId, String field, Object newValue){
+    public void updateEmployeeDetails(T employeeId, String field, Object newValue) throws EmployeeNotFoundException, InvalidSalaryException, InvalidDepartmentException {
         //checks if employee exist
-        if(!employees.containsKey(employeeId)){
-            return false; // employee not found
-        }
+        validateEmployeeExists(employeeId);
+
         Employee<T> employee = employees.get(employeeId);
 
         try{
 
             switch (field.toLowerCase()){
                 case "employeename":
+                    if (newValue == null || ((String) newValue).trim().isEmpty()) {
+                        throw new IllegalArgumentException("Employee name cannot be empty");
+                    }
                     employee.setEmployeeName((String) newValue);
                     break;
                 case "employeedepartment":
-                    employee.setEmployeeDepartment((EEmployeeDepartment) newValue);
+                    if (newValue == null) {
+                        throw new InvalidDepartmentException("Department cannot be null");
+                    }
+                    try {
+                        EEmployeeDepartment department = (EEmployeeDepartment) newValue;
+                        validateDepartment(department);
+                        employee.setEmployeeDepartment(department);
+                    } catch(ClassCastException e) {
+                        throw new InvalidDepartmentException("Invalid department value: " + newValue);
+                    }
                     break;
                 case "employeesalary":
-                    employee.setEmployeeSalary((Double) newValue);
+                    double salary = (Double) newValue;
+                    if (salary < 0){
+                        throw new InvalidSalaryException("Salary cannot be negative");
+                    }
+                    employee.setEmployeeSalary(salary);
                     break;
                 case "performancerating":
                     employee.setPerformanceRating((Double) newValue);
@@ -70,81 +125,164 @@ public class EmployeeDatabase<T> {
                     employee.setActive((Boolean) newValue);
                     break;
                 default:
-                    return false; //Invalid field
+                    throw new IllegalArgumentException("Invalid field name: " + field);
             }
-            return true; // updated
-        }catch (ClassCastException e){
-            return false; // Invalid value type
+        } catch (ClassCastException e) {
+            throw new IllegalArgumentException("Invalid value type for field " + field + ": " + newValue +
+                    " (" + (newValue != null ? newValue.getClass().getSimpleName() : "null") + ")");
         }
     }
 
     //Delete
-    public boolean deleteEmployee(T employeeId){
+    public void deleteEmployee(T employeeId) throws EmployeeNotFoundException {
         //checks if employee exist
         if(!employees.containsKey(employeeId)){
-            return false; // Employee not found
+            throw new EmployeeNotFoundException("Employee with ID " + employeeId + " not found");
         }
         employees.remove(employeeId);
-        return true;
     }
+
 
     // Search and filter Operations
 
     //Finds employees by department
-    public List<Employee<T>> findEmployeesByDepartment(String department){
-        return employees.values().stream()
-                .filter(employee -> employee.getEmployeeDepartment().name().equalsIgnoreCase(department))
-                .collect(Collectors.toList());
+    public List<Employee<T>> findEmployeesByDepartment(String department) throws InvalidDepartmentException{
+        if (department == null || department.trim().isEmpty()) {
+            throw new InvalidDepartmentException("Department name cannot be empty");
+        }
+
+        try {
+            // Validate department
+            EEmployeeDepartment deptEnum = EEmployeeDepartment.valueOf(department.toUpperCase());
+
+            return employees.values().stream()
+                    .filter(Objects::nonNull)
+                    .filter(employee -> employee.getEmployeeDepartment() != null &&
+                            employee.getEmployeeDepartment().equals(deptEnum))
+                    .collect(Collectors.toList());
+        } catch (IllegalArgumentException e) {
+            throw new InvalidDepartmentException("Invalid department: '" + department + "'. Valid departments are: " +
+                    Arrays.toString(EEmployeeDepartment.values()));
+        }
+
     }
 
     //Finds employees whose names contain the given search term
     public List<Employee<T>> findEmployeesByName(String searchTerm){
+        // Validate search term
+        if (searchTerm == null) {
+            throw new IllegalArgumentException("Search term cannot be null");
+        }
+
+        String trimmedTerm = searchTerm.trim();
+        if (trimmedTerm.isEmpty()) {
+            throw new IllegalArgumentException("Search term cannot be empty");
+        }
+
         return employees.values().stream()
-                .filter(employee -> employee.getEmployeeName().toLowerCase().contains(searchTerm.toLowerCase()))
+                .filter(Objects::nonNull)
+                .filter(employee -> employee.getEmployeeName() != null &&
+                        employee.getEmployeeName().toLowerCase().contains(trimmedTerm.toLowerCase()))
                 .collect(Collectors.toList());
     }
 
     //Finds employees with performance rating at or above the specified minimum
     public List<Employee<T>> findEmployeesByMinRating(Double minRating){
+        // Null check for rating
+        if (minRating == null) {
+            throw new IllegalArgumentException("Minimum rating cannot be null");
+        }
+        if (minRating < 0 || minRating > 5) {
+            throw new IllegalArgumentException("Rating must be between 0 and 5, provided: " + minRating);
+        }
         return employees.values().stream()
+                .filter(Objects::nonNull)
                 .filter(employee -> employee.getPerformanceRating() >= minRating)
                 .collect(Collectors.toList());
     }
 
     //Finds employees with salary in the specified range
-    public List<Employee<T>> findEmployeesBySalaryRange(double minSalary, double maxSalary) {
+    public List<Employee<T>> findEmployeesBySalaryRange(double minSalary, double maxSalary) throws InvalidSalaryException{
+        // Validate salary range
+        if (minSalary < 0) {
+            throw new InvalidSalaryException("Minimum salary cannot be negative: " + minSalary);
+        }
+
+        if (maxSalary < minSalary) {
+            throw new InvalidSalaryException("Maximum salary (" + maxSalary +
+                    ") cannot be less than minimum salary (" + minSalary + ")");
+        }
         return employees.values().stream()
+                .filter(Objects::nonNull)
                 .filter(e -> e.getEmployeeSalary() >= minSalary && e.getEmployeeSalary() <= maxSalary)
                 .collect(Collectors.toList());
     }
 
-    //Find employees based on a custom filter
-    public List<Employee <T>> findEmployees(Predicate<Employee<T>> filter){
-        return employees.values().stream()
-                .filter(filter)
-                .collect(Collectors.toList());
-    }
 
     // Sorting Operations
 
     //Gets employees sorted by years of experience
     public List <Employee<T>> getEmployeesSortedByExperience(){
-        List<Employee<T>> sortedList = new ArrayList<>(employees.values());
-        Collections.sort(sortedList); //uses the compareTo method in Employee class
+
+        if (employees == null || employees.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Employee<T>> sortedList = employees.values().stream()
+                .filter(Objects::nonNull)  // Filter out any null employees
+                .collect(Collectors.toList());
+
+        // Handle potential null values in the sorting process
+        try {
+            Collections.sort(sortedList); // Uses the compareTo method in Employee class
+        } catch (Exception e) {
+            // Log exception
+            System.err.println("Error sorting employees by experience: " + e.getMessage());
+        }
+
         return sortedList;
     }
 
     // Gets employees sorted by salary
     public List<Employee<T>> getEmployeesSortedBySalary() {
-        List<Employee<T>> sortedList = new ArrayList<>(employees.values());
-        sortedList.sort(new EmployeeSalaryComparator<>());
+
+        if (employees == null || employees.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Employee<T>> sortedList = employees.values().stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        // Handle potential null values
+        try {
+            sortedList.sort(new EmployeeSalaryComparator<>());
+        } catch (Exception e) {
+            System.err.println("Error sorting employees by salary: " + e.getMessage());
+            // Already handled by our improved comparator, but keeping for defensive programming
+        }
+
         return sortedList;
     }
 
     //Gets employees sorted by performance rating
     public List<Employee<T>> getEmployeesSortedByPerformance() {
-        List<Employee<T>> sortedList = new ArrayList<>(employees.values());
-        sortedList.sort(new EmployeePerformanceComparator<>());
+
+        if (employees == null || employees.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Employee<T>> sortedList = employees.values().stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        try {
+            sortedList.sort(new EmployeePerformanceComparator<>());
+        } catch (Exception e) {
+            System.err.println("Error sorting employees by performance: " + e.getMessage());
+            // Already handled by our improved comparator, but keeping for defensive programming
+        }
+
         return sortedList;
     }
 
@@ -170,7 +308,8 @@ public class EmployeeDatabase<T> {
     }
 
     //Calculates the average salary in a department
-    public double calculateAverageSalaryByDepartment(String department) {
+    public double calculateAverageSalaryByDepartment(String department) throws InvalidDepartmentException{
+
         List<Employee<T>> departmentEmployees = findEmployeesByDepartment(department);
 
         if (departmentEmployees.isEmpty()) {
@@ -194,11 +333,6 @@ public class EmployeeDatabase<T> {
                 .filter(Employee::isActive)
                 .count();
     }
-    //Traverse all employees
-    public Iterator<Employee<T>> getEmployeeIterator() {
-        return employees.values().iterator();
-    }
-
     // Console Display
 
     // Displays all employees using a for-each loop

@@ -174,12 +174,6 @@ public class EmployeeView extends BorderPane {
         employeeTable.getColumns().add(activeColumn);
 
 
-        // Optional: prevent stretching and extra columns
-        employeeTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
-
-        // Row height for clarity
-        employeeTable.setFixedCellSize(40);
-
         // Placeholder for empty table
         Label placeholder = new Label("No employees found");
         placeholder.setStyle("-fx-font-size: 14px; -fx-text-fill: #757575; -fx-font-style: italic;");

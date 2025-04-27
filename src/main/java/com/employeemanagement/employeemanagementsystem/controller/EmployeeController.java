@@ -1,5 +1,8 @@
 package com.employeemanagement.employeemanagementsystem.controller;
 
+import com.employeemanagement.employeemanagementsystem.exceptions.EmployeeNotFoundException;
+import com.employeemanagement.employeemanagementsystem.exceptions.InvalidDepartmentException;
+import com.employeemanagement.employeemanagementsystem.exceptions.InvalidSalaryException;
 import com.employeemanagement.employeemanagementsystem.model.Employee;
 import com.employeemanagement.employeemanagementsystem.model.EmployeeDatabase;
 import com.employeemanagement.employeemanagementsystem.model.EEmployeeDepartment;
@@ -107,41 +110,52 @@ public class EmployeeController {
             Integer id = Integer.parseInt(mainView.getFormView().getIdField().getText());
             String name = mainView.getFormView().getNameField().getText();
             String departmentStr = mainView.getFormView().getDepartmentComboBox().getValue();
-            double salary = Double.parseDouble(mainView.getFormView().getSalaryField().getText());
+            Double salary = Double.parseDouble(mainView.getFormView().getSalaryField().getText());
             double rating = Double.parseDouble(mainView.getFormView().getRatingField().getText());
             int experience = Integer.parseInt(mainView.getFormView().getExperienceField().getText());
             boolean active = mainView.getFormView().getActiveCheckBox().isSelected();
 
             // Validate input
             if (name.isEmpty()) {
-                showAlert("Error", "Please fill all fields!");
+                showAlert("Error", "Invalid Input","Field Name cannot be empty!");
                 return;
             }
             if (departmentStr == null) {
-                showAlert("Error", "Please select a department!");
+                showAlert("Error", "Invalid Input","Please select a department!");
                 return;
             }
-            EEmployeeDepartment department = EEmployeeDepartment.valueOf(departmentStr);
+            EEmployeeDepartment department;
+            try {
+                department = EEmployeeDepartment.valueOf(departmentStr);
+            } catch (IllegalArgumentException e) {
+                showAlert("Error", "Department Error","Invalid department selection!");
+                return;
+            }
 
             if (rating < 0 || rating > 5) {
-                showAlert("Error", "Rating must be between 0 and 5!");
+                showAlert("Error", "Rating Error","Rating must be between 0 and 5!");
+                return;
+            }
+
+            if (experience < 0 || experience > 60) {
+                showAlert("Error", "Invalid Input","Be Honest About Your Experience!");
                 return;
             }
 
             // Create and add employee
             Employee<Integer> employee = new Employee<>(id, name, department, salary, rating, experience, active);
-            boolean success = employeeDB.addEmployee(employee);
 
-            if (success) {
+            try {
+                employeeDB.addEmployee(employee);
                 mainView.getFormView().clearForm();
                 refreshEmployeeTable();
-                showAlert("Success", "Employee added successfully!");
-            } else {
-                showAlert("Error", "Employee with this ID already exists!");
+                showAlert("info", "Success","Employee added successfully!");
+            } catch (InvalidSalaryException | IllegalArgumentException e) {
+                showAlert("Error","System Error", e.getMessage());
             }
 
         } catch (NumberFormatException e) {
-            showAlert("Error", "Please Fields like Salary, Years Of Experience and Rating only support numeric values!");
+            showAlert("Error", "Invalid Input","All Fields are required!!\nAlso ensure fields like Salary, Years Of Experience and Rating contain valid numeric values!");
         }
     }
 
@@ -151,7 +165,7 @@ public class EmployeeController {
             // Get selected employee
             Employee<Integer> selectedEmployee = mainView.getTableView().getEmployeeTable().getSelectionModel().getSelectedItem();
             if (selectedEmployee == null) {
-                showAlert("Error", "Please select an employee to update!");
+                showAlert("Error", "Invalid Input","Please select an employee to update!");
                 return;
             }
 
@@ -160,7 +174,7 @@ public class EmployeeController {
 
             // Ensure we're updating the same employee
             if (!id.equals(selectedEmployee.getEmployeeId())) {
-                showAlert("Error", "Cannot change employee ID!");
+                showAlert("Error", "Invalid Input","Cannot change employee ID!");
                 return;
             }
 
@@ -174,36 +188,49 @@ public class EmployeeController {
 
             // Validate input
             if (name.isEmpty()) {
-                showAlert("Error", "Please fill all fields!");
+                showAlert("Error", "Invalid Input","Please fill all fields!");
                 return;
             }
 
             if (departmentStr.equals("Select Department")) {
-                showAlert("Error", "Please select a department!");
+                showAlert("Error", "Invalid Input","Please select a department!");
                 return;
             }
-            EEmployeeDepartment department = EEmployeeDepartment.valueOf(departmentStr);
+            EEmployeeDepartment department;
+            try {
+                department = EEmployeeDepartment.valueOf(departmentStr);
+            } catch (IllegalArgumentException e) {
+                showAlert("Error", "Invalid Input","Invalid department selection!");
+                return;
+            }
 
             if (rating < 0 || rating > 5) {
-                showAlert("Error", "Rating must be between 0 and 5!");
+                showAlert("Error", "Invalid Input","Rating must be between 0 and 5!");
                 return;
             }
 
+            if (experience < 0 || experience > 60) {
+                showAlert("Error", "Invalid Input","Be Honest About Your Experience!");
+                return;
+            }
 
-            // Update employee using updateEmployeeDetails method for each field
-            employeeDB.updateEmployeeDetails(id, "employeeName", name);
-            employeeDB.updateEmployeeDetails(id, "employeeDepartment", department);
-            employeeDB.updateEmployeeDetails(id, "employeeSalary", salary);
-            employeeDB.updateEmployeeDetails(id, "performanceRating", rating);
-            employeeDB.updateEmployeeDetails(id, "yearOfExperience", experience);
-            employeeDB.updateEmployeeDetails(id, "active", active);
+            try {
+                // Update employee using updateEmployeeDetails method for each field
+                employeeDB.updateEmployeeDetails(id, "employeeName", name);
+                employeeDB.updateEmployeeDetails(id, "employeeDepartment", department);
+                employeeDB.updateEmployeeDetails(id, "employeeSalary", salary);
+                employeeDB.updateEmployeeDetails(id, "performanceRating", rating);
+                employeeDB.updateEmployeeDetails(id, "yearOfExperience", experience);
+                employeeDB.updateEmployeeDetails(id, "active", active);
 
-            mainView.getFormView().clearForm();
-            refreshEmployeeTable();
-            showAlert("Success", "Employee updated successfully!");
-
+                mainView.getFormView().clearForm();
+                refreshEmployeeTable();
+                showAlert("info", "Success","Employee updated successfully!");
+            } catch (EmployeeNotFoundException | InvalidSalaryException | InvalidDepartmentException e) {
+                showAlert("Error","System Error", e.getMessage());
+            }
         } catch (NumberFormatException e) {
-            showAlert("Error", "Please Fields like Salary, Years Of Experience and Rating only support numeric values!");
+            showAlert("Error", "Invalid Input","Please ensure fields like Salary, Years Of Experience and Rating contain valid numeric values!");
         }
     }
 
@@ -211,17 +238,17 @@ public class EmployeeController {
     private void deleteEmployee() {
         Employee<Integer> selectedEmployee = mainView.getTableView().getEmployeeTable().getSelectionModel().getSelectedItem();
         if (selectedEmployee == null) {
-            showAlert("Error", "Please select an employee to delete!");
+            showAlert("Error", "Invalid Input","Please select an employee to delete!");
             return;
         }
 
-        boolean success = employeeDB.deleteEmployee(selectedEmployee.getEmployeeId());
-        if (success) {
+        try {
+            employeeDB.deleteEmployee(selectedEmployee.getEmployeeId());
             mainView.getFormView().clearForm();
             refreshEmployeeTable();
-            showAlert("Success", "Employee deleted successfully!");
-        } else {
-            showAlert("Error", "Could not delete employee!");
+            showAlert("info", "Success","Employee deleted successfully!");
+        } catch (EmployeeNotFoundException e) {
+            showAlert("Error","System Error", e.getMessage());
         }
     }
 
@@ -230,13 +257,19 @@ public class EmployeeController {
         String searchType = mainView.getSearchView().getSearchTypeComboBox().getValue();
         String searchTerm = mainView.getSearchView().getSearchField().getText();
 
-        if (searchTerm.isEmpty()) {
-            showAlert("Error", "Please enter a search term!");
+        if (searchType == null || searchType.isEmpty()) {
+            showAlert("error", "Invalid Input", "Please select a search type!");
+            return;
+        }
+
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            showAlert("error", "Invalid Input", "Please enter a search term!");
             return;
         }
 
         List<Employee<Integer>> results;
 
+        try {
         switch (searchType) {
             case "Name":
                 results = employeeDB.findEmployeesByName(searchTerm);
@@ -244,18 +277,21 @@ public class EmployeeController {
             case "Department":
                 try {
                     results = employeeDB.findEmployeesByDepartment(searchTerm);
-                } catch (IllegalArgumentException e) {
-                    showAlert("Error", "Invalid department! Valid departments are: " +
-                            String.join(", ", getDepartmentNames()));
+                } catch (InvalidDepartmentException e) {
+                    showAlert("error", "Department Error", e.getMessage());
                     return;
                 }
                 break;
             case "Minimum Rating":
                 try {
                     double minRating = Double.parseDouble(searchTerm);
+                    if (minRating < 0 || minRating > 5) {
+                        showAlert("error", "Rating Error", "Rating must be between 0 and 5!");
+                        return;
+                    }
                     results = employeeDB.findEmployeesByMinRating(minRating);
                 } catch (NumberFormatException e) {
-                    showAlert("Error", "Please enter a valid rating number!");
+                    showAlert("error", "Invalid Input", "Please enter a valid number for rating (0-5)!");
                     return;
                 }
                 break;
@@ -263,25 +299,56 @@ public class EmployeeController {
                 try {
                     String[] range = searchTerm.split("-");
                     if (range.length != 2) {
-                        showAlert("Error", "Salary range should be in format: min-max");
+                        showAlert("error", "Format Error", "Salary range should be in format: min-max (Example: 30000-50000)");
                         return;
                     }
-                    double minSalary = Double.parseDouble(range[0].trim());
-                    double maxSalary = Double.parseDouble(range[1].trim());
+
+                    String minStr = range[0].trim();
+                    String maxStr = range[1].trim();
+
+                    if (minStr.isEmpty() || maxStr.isEmpty()) {
+                        showAlert("error", "Format Error", "Both minimum and maximum values must be provided!");
+                        return;
+                    }
+
+                    double minSalary = Double.parseDouble(minStr);
+                    double maxSalary = Double.parseDouble(maxStr);
+
+                    if (minSalary < 0) {
+                        showAlert("error", "Salary Error", "Minimum salary cannot be negative!");
+                        return;
+                    }
+
+                    if (maxSalary < minSalary) {
+                        showAlert("error", "Salary Error", "Maximum salary cannot be less than minimum salary!");
+                        return;
+                    }
+
                     results = employeeDB.findEmployeesBySalaryRange(minSalary, maxSalary);
                 } catch (NumberFormatException e) {
-                    showAlert("Error", "Please enter valid salary numbers!");
+                    showAlert("error", "Invalid Input", "Please enter valid numbers for salary range!");
+                    return;
+                } catch (InvalidSalaryException e) {
+                    showAlert("error", "Salary Error", e.getMessage());
                     return;
                 }
                 break;
             default:
-                showAlert("Error", "Invalid search type!");
+                showAlert("error", "Configuration Error", "Invalid search type: " + searchType);
                 return;
         }
-        // Update table with search results
-        ObservableList<Employee<Integer>> employeeList = FXCollections.observableArrayList(results);
-        mainView.getSearchView().clearForm();
-        mainView.getTableView().updateEmployeeTable(results);
+            // Update table with search results
+            mainView.getSearchView().clearForm();
+            mainView.getTableView().updateEmployeeTable(results);
+
+            // Show message if no results found
+            if (results.isEmpty()) {
+                showAlert("info", "Search Results", "No matching employees found.");
+            }
+
+        } catch (Exception e) {
+            showAlert("error", "System Error", "An unexpected error occurred: " + e.getMessage());
+        }
     }
 
     //Sorts employees based on the selected criteria
@@ -300,7 +367,7 @@ public class EmployeeController {
                 sortedList = employeeDB.getEmployeesSortedByPerformance();
                 break;
             default:
-                showAlert("Error", "Invalid sort type!");
+                showAlert("Error", "Sort Error","Invalid sort type!");
                 return;
         }
 
@@ -310,8 +377,9 @@ public class EmployeeController {
     }
 
     //Shows an alert dialog
-    private void showAlert(String title, String message) {
-        Alert alert = new Alert(AlertType.INFORMATION);
+    private void showAlert(String type, String title, String message) {
+        AlertType alertType = type.equalsIgnoreCase("error") ? AlertType.ERROR : AlertType.INFORMATION;
+        Alert alert = new Alert(alertType);
         alert.setTitle(title);
         alert.setHeaderText(null);
         alert.setContentText(message);
@@ -330,9 +398,9 @@ public class EmployeeController {
         int count = employeeDB.giveSalaryRaiseToHighPerformers();
         if (count > 0) {
             refreshEmployeeTable();
-            showAlert("Salary Raise", count + " employee(s) with 3.5 and above high performance received a salary raise of 2%.");
+            showAlert("info","Salary Raise", count + " employee(s) with 3.5 and above high performance received a salary raise of 2%.");
         }else {
-            showAlert("Salary Raise", "No employee with high performance Found!");
+            showAlert("info","Salary Raise", "No employee with high performance Found!");
         }
 
     }
@@ -341,7 +409,7 @@ public class EmployeeController {
         try {
             int topN = Integer.parseInt(mainView.getSalaryManagementView().getTopNField().getText());
             if (topN <= 0) {
-                showAlert("Error", "Please enter a positive number for top employees.");
+                showAlert("Error", "Invalid Input","Please enter a positive number for top employees.");
                 return;
             }
 
@@ -351,29 +419,33 @@ public class EmployeeController {
             mainView.getTableView().updateEmployeeTable(topPaid);
 
             if (topPaid.isEmpty()) {
-                showAlert("Top Paid Employees", "No employees found.");
+                showAlert("info","Top Paid Employees", "No employees found.");
             } else {
-                showAlert("Top Paid Employees", "Displaying top " + topPaid.size() + " highest paid employees.");
+                showAlert("info","Top Paid Employees", "Displaying top " + topPaid.size() + " highest paid employees.");
             }
         } catch (NumberFormatException e) {
-            showAlert("Error", "Please enter a valid number.");
+            showAlert("Error", "Invalid Input","Please enter a valid number.");
         }
     }
 
     private void calculateAverageSalary() {
         String department = mainView.getSalaryManagementView().getDepartmentComboBox().getValue();
         if (department == null) {
-            showAlert("Error", "Please select a department.");
+            showAlert("Error", "Invalid Input","Please select a department.");
             return;
         }
 
-        double avgSalary = employeeDB.calculateAverageSalaryByDepartment(department);
+        try {
+            double avgSalary = employeeDB.calculateAverageSalaryByDepartment(department);
 
-        if (avgSalary > 0) {
-            showAlert("Average Salary",
-                    "The average salary in the " + department + " department is: $" + String.format("%.2f", avgSalary));
-        } else {
-            showAlert("Average Salary", "No employees found in the " + department + " department.");
+            if (avgSalary >= 0) {
+                showAlert("info","Average Salary",
+                        "The average salary in the " + department + " department is: $" + String.format("%.2f", avgSalary));
+            } else {
+                showAlert("info","Average Salary", "No employees found in the " + department + " department.");
+            }
+        } catch (InvalidDepartmentException e) {
+            showAlert("Error","Invalid Input", e.getMessage());
         }
     }
 
@@ -381,7 +453,7 @@ public class EmployeeController {
     private void printEmployeeReportsToConsole() {
         // Check if there are employees to display
         if (employeeDB.getTotalEmployeeCount() == 0) {
-            showAlert("No Employees", "There are no employees to display in the console.");
+            showAlert("info","No Employees", "There are no employees to display in the console.");
             return;
         }
 
@@ -395,7 +467,7 @@ public class EmployeeController {
         employeeDB.displayEmployeesWithStreams();
 
         // Show confirmation dialog
-        showAlert("Console Report", "Employee reports have been printed to the console.");
+        showAlert("info","Console Report", "Employee reports have been printed to the console.");
     }
 
 }

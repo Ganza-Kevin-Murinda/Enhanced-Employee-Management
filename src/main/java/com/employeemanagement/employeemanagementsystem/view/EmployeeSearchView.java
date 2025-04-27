@@ -47,8 +47,8 @@ public class EmployeeSearchView extends HBox {
 
         // Sort dropdown with style
         sortComboBox = new ComboBox<>();
-        sortComboBox.getItems().addAll("Experience (Default)", "Salary", "Performance");
-        sortComboBox.setValue("Experience (Default)");
+        sortComboBox.getItems().addAll("Experience", "Salary", "Performance");
+        sortComboBox.setValue("Experience");
         sortComboBox.setStyle("-fx-background-radius: 5; -fx-border-radius: 5;");
 
         // Style labels

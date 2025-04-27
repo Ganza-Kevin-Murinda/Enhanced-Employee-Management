@@ -65,8 +65,7 @@ public class EmployeeFormView extends VBox {
 
         idField = new TextField();
         idField.setPromptText("Employee ID");
-        idField.setEditable(false);
-        idField.setStyle(fieldStyle + "-fx-background-color: #f0f0f0;");
+        idField.setEditable(true);
 
         nameField = new TextField();
         nameField.setPromptText("Name");
