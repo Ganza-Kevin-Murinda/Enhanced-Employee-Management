@@ -357,7 +357,7 @@ public class EmployeeController {
         List<Employee<Integer>> sortedList;
 
         switch (sortType) {
-            case "Experience (Default)":
+            case "Experience":
                 sortedList = employeeDB.getEmployeesSortedByExperience();
                 break;
             case "Salary":
