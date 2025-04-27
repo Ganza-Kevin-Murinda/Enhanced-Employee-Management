@@ -47,6 +47,12 @@ Building on the Employee Management system developed Previously, this version ad
 
 ---
 
+## 📹 Video
+
+```
+https://screenrec.com/share/LVSawTdx1F
+```
+---
 ## 🧑‍💻 How to Run
 
 1. **Clone the Repository**
